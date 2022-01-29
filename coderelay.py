@@ -81,8 +81,38 @@ def list_repos():
     spinner.active = True
     Thread(target=async_spinner, args=(spinner,), daemon=True).start()
 
-    available_projects = requests.get("https://api.github.com/repos/coderelay/projects").json()
+    available_projects = requests.get(
+        "https://raw.githubusercontent.com/KTibow/code-relay/main/data/available_projects.json"
+    ).json()
 
     spinner.finish()
     spinner.active = False
-    print(available_projects)
+
+    config_path = user_config_dir() + "/coderelay/coderelay.json"
+    if not os.path.exists(config_path):
+        click.echo("Please run `coderelay user-prefs` to configure your preferences.")
+        return
+    with open(config_path, "r") as config_file:
+        config = ujson.load(config_file)
+
+    for project in available_projects:
+        match = "good match"
+        for language in project["languages"]:
+            if language not in config["languages"]:
+                match = "new language"
+                break
+        for framework in project["frameworks"]:
+            if framework not in config["frameworks"]:
+                match = "new framework" if match == "good match" else match
+                break
+            if framework in config["excluded_frameworks"]:
+                match = "framework you excluded"
+                break
+        click.secho(
+            f"{project['name']}, {project['description']}, {match}",
+            fg="green"
+            if match == "good match"
+            else "yellow"
+            if match == "new framework"
+            else "red",
+        )
