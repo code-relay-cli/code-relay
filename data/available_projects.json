@@ -1,0 +1,15 @@
+[
+    {
+        "name": "SBQuery",
+        "git": "https://github.com/KTibow/SBQuery",
+        "desc": "A GraphQL frontend and backend for data about the game Hypixel Skyblock.",
+        "lanugages": ["python", "html", "javascript", "css"],
+        "frameworks": ["sanic", "graphql", "graphene", "tailwindcss"],
+        "task_file": "server/schema.py",
+        "setup": {
+            "installation": "python -m pip install -r requirements.txt requests",
+            "build": "./format.sh",
+            "serve": "python server/server.py"
+        }
+    }
+]
