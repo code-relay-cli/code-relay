@@ -3,7 +3,6 @@ import os
 import shutil
 import subprocess
 from threading import Thread
-from time import sleep
 
 import click
 import requests
@@ -11,31 +10,16 @@ import ujson
 from platformdirs import user_config_dir, user_documents_dir
 from progress.spinner import PixelSpinner
 
+from cli_utils import GroupedGroup, async_spinner, cross_platform_open_file
+
 # A command line tool that recommends GitHub repos that want help.
 # It operates on the Code Relay philosophy of work, where maintainers
 # can ask for help on a project, and people can help with it,
 # a couple lines of code at a time.
 
 
-def cross_platform_open_file(file_path):
-    if hasattr(os, "startfile"):
-        os.startfile(file_path)
-    elif shutil.which("xdg-open"):
-        subprocess.call(["xdg-open", file_path])
-    elif "EDITOR" in os.environ:
-        subprocess.call([os.environ["EDITOR"], file_path])
-    else:
-        click.echo(f"No editor found, please open {file_path} manually.")
-
-
-def async_spinner(spinner):
-    while spinner.active:
-        spinner.next()
-        sleep(0.1)
-
-
 def fetch_repos():
-    spinner = PixelSpinner("Fetching repos...")
+    spinner = PixelSpinner("⏳ Fetching repos...")
     spinner.active = True
     Thread(target=async_spinner, args=(spinner,), daemon=True).start()
 
@@ -49,21 +33,16 @@ def fetch_repos():
     return ujson.loads(available_projects)
 
 
-@click.group()
+@click.group(cls=GroupedGroup)
 def cli():
     pass
 
 
-@cli.command()
+@cli.command(group="General")
 def user_prefs():
     """
-    Configure your preferences for types of projects you want.
+    Configure what projects you want to see.
     """
-    # Config file is at user_config_dir() + "/coderelay/coderelay.json"
-    # Schema:
-    # languages: []
-    # frameworks: []
-    # excluded_frameworks: []
 
     config_path = user_config_dir() + "/coderelay/coderelay.json"
     if not os.path.exists(config_path):
@@ -88,10 +67,10 @@ def user_prefs():
         cross_platform_open_file(config_path)
 
 
-@cli.command()
+@cli.command(group="General")
 def list_repos():
     """
-    List all the recommended repos.
+    List repos that you can help with.
     """
     available_projects = fetch_repos()
 
@@ -126,7 +105,7 @@ def list_repos():
     click.echo("Get started on one by running `coderelay start-project <project-name>`.")
 
 
-@cli.command()
+@cli.command(group="Project")
 @click.argument("project_name")
 def start_project(project_name):
     """
@@ -151,7 +130,7 @@ def start_project(project_name):
             click.echo("Aborting.")
             return
 
-    spinner = PixelSpinner("Downloading the code...")
+    spinner = PixelSpinner("⏳ Downloading the code...")
     spinner.active = True
     Thread(target=async_spinner, args=(spinner,), daemon=True).start()
     os.makedirs(project_path, exist_ok=True)
@@ -162,6 +141,8 @@ def start_project(project_name):
         stderr=subprocess.DEVNULL,
     )
 
+    # Add a file to refer to later with info about the project,
+    # but also add it to the gitignore so it isn't commited.
     with open(project_path + "/.gitignore", "r") as gitignore_file:
         if not "coderelay.json" in gitignore_file.read():
             with open(project_path + "/.gitignore", "a") as gitignore_file:
@@ -170,6 +151,7 @@ def start_project(project_name):
         ujson.dump(
             project,
             coderelay_file,
+            indent=4,
         )
 
     spinner.finish()
